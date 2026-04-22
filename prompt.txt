@@ -1,0 +1,943 @@
+You are an expert React frontend developer and UI/UX designer.
+Your task is to build a complete, visually stunning, fully dynamic
+frontend for a study-abroad platform that connects to the backend
+API we already built. Work through every task sequentially and do
+not stop until everything is implemented.
+
+=============================================================
+DESIGN PHILOSOPHY & AESTHETIC DIRECTION
+=============================================================
+
+Theme: "Midnight Explorer" — a ref
+ined dark-first design with
+warm gold accents that evokes the feeling of planning a journey
+under the stars. Think luxury travel meets modern SaaS.
+
+Visual Identity:
+  - Dark deep-navy backgrounds (#0A0F1E, #0D1526, #111827)
+  - Warm gold/amber accent (#F5A623, #E8920F, #FFB84D)
+  - Soft teal for success/highlights (#2DD4BF, #14B8A6)
+  - Coral for alerts/warnings (#F87171)
+  - Pure white text with muted secondaries (#F9FAFB, #9CA3AF)
+
+Typography:
+  Primary font:  'Playfair Display' (headings — elegant, editorial)
+  Secondary font: 'DM Sans' (body — clean, modern, readable)
+  Mono font: 'JetBrains Mono' (data, scores, numbers)
+  Import from Google Fonts.
+
+Motion & Animation:
+  - Page transitions: fade + slide up (300ms ease-out)
+  - Card hover: subtle lift with golden border glow
+  - Skeleton loaders on every data fetch
+  - Number counters that animate up on first view
+  - Staggered list reveals (each item 50ms later than previous)
+  - Smooth sidebar open/close
+  - Progress bars that animate on mount
+
+Adaptable Theme:
+  - Light mode and dark mode both fully designed
+  - Theme toggle in navbar persists to localStorage
+  - CSS variables power ALL colors — switching theme
+    changes only the root variables, nothing else
+
+=============================================================
+TASK 0 — PROJECT INITIALISATION
+=============================================================
+
+1. Create React app with Vite:
+   npm create vite@latest study-abroad-frontend -- --template react
+   cd study-abroad-frontend
+
+2. Install dependencies:
+   npm install axios react-router-dom zustand @tanstack/react-query \
+     react-hot-toast framer-motion react-hook-form @hookform/resolvers \
+     zod lucide-react recharts date-fns clsx
+
+3. Install dev dependencies:
+   npm install --save-dev tailwindcss postcss autoprefixer
+   npx tailwindcss init -p
+
+4. Configure tailwind.config.js:
+   content: ['./index.html', './src/**/*.{js,jsx}']
+   Extend theme with custom colors matching the palette above.
+   Add custom fontFamily for playfair, dm-sans, jetbrains.
+
+5. In index.css import Google Fonts and define CSS variables:
+
+   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+   :root {
+     /* Dark theme (default) */
+     --bg-primary:    #0A0F1E;
+     --bg-secondary:  #0D1526;
+     --bg-card:       #111827;
+     --bg-elevated:   #1A2235;
+     --accent-gold:   #F5A623;
+     --accent-gold-dim: #C4841C;
+     --accent-teal:   #2DD4BF;
+     --accent-coral:  #F87171;
+     --text-primary:  #F9FAFB;
+     --text-secondary:#9CA3AF;
+     --text-muted:    #6B7280;
+     --border:        rgba(255,255,255,0.08);
+     --border-hover:  rgba(245,166,35,0.4);
+     --shadow-card:   0 4px 24px rgba(0,0,0,0.4);
+     --shadow-glow:   0 0 20px rgba(245,166,35,0.15);
+   }
+
+   [data-theme='light'] {
+     --bg-primary:    #F8F6F0;
+     --bg-secondary:  #FFFFFF;
+     --bg-card:       #FFFFFF;
+     --bg-elevated:   #F1EDE3;
+     --accent-gold:   #C4841C;
+     --accent-gold-dim: #A36B12;
+     --accent-teal:   #0D9488;
+     --accent-coral:  #DC2626;
+     --text-primary:  #111827;
+     --text-secondary:#4B5563;
+     --text-muted:    #9CA3AF;
+     --border:        rgba(0,0,0,0.08);
+     --border-hover:  rgba(196,132,28,0.4);
+     --shadow-card:   0 4px 24px rgba(0,0,0,0.08);
+     --shadow-glow:   0 0 20px rgba(196,132,28,0.1);
+   }
+
+6. Create this folder structure:
+   src/
+     api/
+       axios.js         # axios instance + interceptors
+       auth.js
+       universities.js
+       programs.js
+       recommendations.js
+       applications.js
+     components/
+       layout/
+         Navbar.jsx
+         Sidebar.jsx
+         Layout.jsx
+         Footer.jsx
+       ui/
+         Button.jsx
+         Card.jsx
+         Badge.jsx
+         Input.jsx
+         Select.jsx
+         Modal.jsx
+         Skeleton.jsx
+         Spinner.jsx
+         EmptyState.jsx
+         StatCard.jsx
+         ProgressBar.jsx
+         ThemeToggle.jsx
+         Avatar.jsx
+         Tooltip.jsx
+       universities/
+         UniversityCard.jsx
+         UniversityGrid.jsx
+         UniversityFilters.jsx
+         ProgramCard.jsx
+       recommendations/
+         RecommendationCard.jsx
+         RecommendationScore.jsx
+         PreferencesForm.jsx
+       applications/
+         ApplicationCard.jsx
+         ApplicationTimeline.jsx
+         StatusBadge.jsx
+         StatusUpdateModal.jsx
+       dashboard/
+         WelcomeBanner.jsx
+         StatsRow.jsx
+         RecentApplications.jsx
+         QuickActions.jsx
+     pages/
+       LandingPage.jsx
+       LoginPage.jsx
+       RegisterPage.jsx
+       DashboardPage.jsx
+       UniversitiesPage.jsx
+       UniversityDetailPage.jsx
+       ProgramsPage.jsx
+       RecommendationsPage.jsx
+       ApplicationsPage.jsx
+       ApplicationDetailPage.jsx
+       ProfilePage.jsx
+       NotFoundPage.jsx
+     store/
+       authStore.js
+       themeStore.js
+     hooks/
+       useAuth.js
+       useDebounce.js
+       usePagination.js
+     utils/
+       formatters.js
+       constants.js
+     App.jsx
+     main.jsx
+
+=============================================================
+TASK 1 — API LAYER
+=============================================================
+
+src/api/axios.js:
+  Create axios instance:
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+    timeout: 10000
+    headers: { 'Content-Type': 'application/json' }
+
+  Request interceptor:
+    Read token from localStorage key 'sa_token'
+    If exists: set Authorization: Bearer <token>
+
+  Response interceptor:
+    On success: return response.data directly
+    On 401 error: clear localStorage, redirect to /login
+    On other errors: reject with error.response.data.message or default message
+
+src/api/auth.js:
+  export const authAPI = {
+    register: (data) => api.post('/auth/register', data),
+    login:    (data) => api.post('/auth/login', data),
+    getProfile:       () => api.get('/auth/profile'),
+    updatePreferences:(data) => api.patch('/auth/preferences', data)
+  }
+
+src/api/universities.js:
+  export const universityAPI = {
+    getAll:   (params) => api.get('/universities', { params }),
+    getById:  (id)     => api.get(`/universities/${id}`),
+    getPrograms:(params)=> api.get('/universities/programs/all', { params })
+  }
+
+src/api/recommendations.js:
+  export const recommendationAPI = {
+    get:  (data) => api.post('/recommendations', data)
+  }
+
+src/api/applications.js:
+  export const applicationAPI = {
+    apply:        (data)        => api.post('/applications', data),
+    getAll:       ()            => api.get('/applications'),
+    getById:      (id)          => api.get(`/applications/${id}`),
+    updateStatus: (id, data)    => api.patch(`/applications/${id}/status`, data),
+    getHistory:   (id)          => api.get(`/applications/${id}/history`)
+  }
+
+=============================================================
+TASK 2 — STATE MANAGEMENT
+=============================================================
+
+src/store/authStore.js (Zustand):
+  State: { user, token, isAuthenticated, isLoading }
+
+  Actions:
+    login(credentials):
+      Set isLoading true
+      Call authAPI.login
+      Save token to localStorage key 'sa_token'
+      Set user, token, isAuthenticated: true
+      Set isLoading false
+      Return { success: true }
+      On error: set isLoading false, return { success: false, message }
+
+    register(data):
+      Same pattern as login but call authAPI.register
+
+    logout():
+      Remove 'sa_token' from localStorage
+      Reset state to initial
+
+    loadUser():
+      Read token from localStorage
+      If exists: set token, call authAPI.getProfile, set user + isAuthenticated
+
+    updatePreferences(data):
+      Call authAPI.updatePreferences
+      Update user in store
+
+  Call loadUser() once on store initialization.
+
+src/store/themeStore.js (Zustand):
+  State: { theme: 'dark' }  // 'dark' | 'light'
+
+  Actions:
+    toggleTheme():
+      Flip theme
+      Apply to document.documentElement.setAttribute('data-theme', theme)
+      Persist to localStorage key 'sa_theme'
+
+    initTheme():
+      Read from localStorage or default 'dark'
+      Apply to document
+
+  Call initTheme() on store init.
+
+=============================================================
+TASK 3 — REUSABLE UI COMPONENTS
+=============================================================
+
+All components use CSS variables for colors — never hardcode hex values.
+
+components/ui/Button.jsx:
+  Props: variant ('primary'|'secondary'|'ghost'|'danger'), size ('sm'|'md'|'lg'),
+         loading, disabled, icon, children, onClick, type
+  
+  Primary: gold background, dark text, hover darken + glow shadow
+  Secondary: transparent, gold border, gold text
+  Ghost: transparent, muted text, hover: slight bg
+  Danger: coral background
+  Loading state: show spinner, disable pointer events
+  All variants: smooth 200ms transition, scale(0.98) on active
+
+components/ui/Card.jsx:
+  Props: children, hover (bool), glow (bool), className, onClick
+  Base: bg-card, border, border-color, rounded-xl, shadow-card
+  hover=true: translateY(-2px) on hover, border-hover color
+  glow=true: add shadow-glow on hover
+  Smooth 250ms transitions
+
+components/ui/Badge.jsx:
+  Props: variant ('success'|'warning'|'error'|'info'|'neutral'), children, size
+  Map application statuses to variants:
+    Applied → info (teal)
+    Reviewed → warning (amber)
+    Accepted → success (green)
+    Rejected → error (coral)
+    Withdrawn → neutral (gray)
+
+components/ui/Input.jsx:
+  Props: label, error, icon, type, placeholder, register (react-hook-form), ...rest
+  Style: dark bg-elevated, border, rounded-lg, gold focus ring (outline-offset)
+  Show error message below in coral color
+  Icon renders inside the input on the left
+  Floating label animation: label moves up and shrinks on focus/filled
+
+components/ui/Select.jsx:
+  Same style as Input but renders a <select>
+  Custom arrow icon using lucide ChevronDown
+  Options array prop: [{ value, label }]
+
+components/ui/Skeleton.jsx:
+  Props: width, height, rounded, className
+  Animated shimmer effect using CSS keyframes:
+    gradient sweep from left to right, 1.5s infinite
+  Use bg-elevated as base, slightly lighter as shimmer highlight
+
+components/ui/Modal.jsx:
+  Props: isOpen, onClose, title, children, size ('sm'|'md'|'lg')
+  Backdrop: fixed inset-0, dark semi-transparent, blur(4px)
+  Modal: centered, bg-card, rounded-2xl, shadow-xl
+  Animation: backdrop fade in, modal scale from 0.95 + fade in (framer-motion)
+  Close on backdrop click and Escape key
+  Trap focus inside modal
+
+components/ui/StatCard.jsx:
+  Props: icon, label, value, trend, color
+  Show icon in colored circle, large number value with JetBrains Mono font,
+  small label below, optional trend indicator (↑↓ with color)
+  Animate value counting up from 0 on mount using requestAnimationFrame
+
+components/ui/ThemeToggle.jsx:
+  Animated toggle switch — sun icon for light, moon icon for dark
+  Smooth slide animation for the toggle thumb
+  Connect to themeStore
+
+components/ui/EmptyState.jsx:
+  Props: icon, title, description, action (button config)
+  Centered layout with large muted icon, heading, description text, optional CTA button
+
+components/ui/ProgressBar.jsx:
+  Props: value (0-100), color, label, animated
+  Animate width from 0 to value on mount with 600ms ease-out
+  Show percentage label
+
+=============================================================
+TASK 4 — LAYOUT COMPONENTS
+=============================================================
+
+components/layout/Navbar.jsx:
+  Left: Logo — stylized globe icon + "StudyAbroad" in Playfair Display
+  Center (desktop): nav links — Discover, Programs, Recommendations, Applications
+  Right: ThemeToggle + (if authenticated: Avatar dropdown, else Login/Register buttons)
+
+  Avatar dropdown menu (framer-motion AnimatePresence):
+    - Profile
+    - My Applications
+    - Preferences
+    - Logout
+
+  Mobile: hamburger menu that opens a full-screen overlay nav
+
+  Sticky top-0, backdrop-blur, subtle border-bottom
+  Active link: gold underline indicator
+
+components/layout/Sidebar.jsx:
+  (Used in dashboard — left panel, collapsible)
+  Links: Dashboard, Discover Universities, Programs, Get Recommendations,
+         My Applications, Profile
+  Each link: icon (lucide) + label
+  Active state: gold left border + subtle bg tint
+  Collapsed state: icons only with tooltips
+  Toggle button at the bottom
+  Smooth width transition (240px ↔ 64px)
+
+components/layout/Layout.jsx:
+  Props: children, showSidebar (bool)
+  Renders: Navbar at top
+  If showSidebar: flex row of Sidebar + main content
+  Else: full-width main content
+  Main content scrolls independently
+  Add padding-top for sticky navbar height
+
+components/layout/Footer.jsx:
+  Dark background, 3 columns:
+    Col 1: Logo + tagline
+    Col 2: Quick links
+    Col 3: Social icons (lucide placeholders)
+  Bottom bar: copyright
+
+=============================================================
+TASK 5 — LANDING PAGE
+=============================================================
+
+pages/LandingPage.jsx — make this visually spectacular:
+
+  Section 1 — Hero:
+    Full viewport height
+    Background: subtle animated star field (canvas or CSS)
+      — small white dots that slowly drift, parallax on mouse move
+    Headline (Playfair Display, 72px): "Your Journey\nBegins Here"
+    Subheadline: clean DM Sans, muted color, 20px
+    Two CTAs: "Explore Universities" (gold primary) + "Get Recommendations" (secondary)
+    Floating cards: 3 animated cards showing university stats, drifting gently up/down
+      with staggered delays (CSS keyframes, translateY back and forth)
+    Scroll indicator: animated bouncing chevron at bottom
+
+  Section 2 — Stats Bar:
+    Full-width dark band
+    4 stat counters that animate when scrolled into view (IntersectionObserver):
+      "500+ Universities" · "50+ Countries" · "10K+ Students" · "95% Success Rate"
+    Numbers use JetBrains Mono, gold color, large size
+    Separator lines between stats
+
+  Section 3 — How It Works:
+    3 steps in a horizontal layout with connecting dotted line
+    Each step: numbered circle (gold), icon, title, description
+    Staggered fade-in on scroll
+
+  Section 4 — Featured Destinations:
+    Heading: "Popular Study Destinations"
+    Horizontal scroll row of destination cards (6 cards):
+      Each card: country flag emoji, country name, university count, avg tuition
+      Gradient overlay at bottom of card
+      Hover: scale up slightly, glow border
+    Countries: USA, UK, Canada, Australia, Germany, Netherlands
+
+  Section 5 — Testimonials:
+    3 quote cards in a grid
+    Each: avatar (colored initials circle), name, university, quote text, star rating
+    Cards tilt very slightly on hover (CSS perspective transform)
+
+  Section 6 — CTA Banner:
+    Full-width, gold gradient background (amber tones)
+    Dark text for contrast
+    Heading + subtext + "Get Started Free" button
+
+=============================================================
+TASK 6 — AUTH PAGES
+=============================================================
+
+pages/LoginPage.jsx:
+  Split layout: left panel (60%) + right decorative panel (40%)
+
+  Left panel:
+    Logo at top
+    Heading: "Welcome back" (Playfair Display)
+    Subtext: muted
+    Form (react-hook-form + zod):
+      Email input (mail icon)
+      Password input (lock icon, show/hide toggle)
+      Forgot password link (non-functional, just styled)
+      Submit button (full width, loading state)
+    Divider: "or continue with" (styled hr lines)
+    OAuth placeholders: Google + GitHub buttons (styled, not functional)
+    Link to register
+
+  Right panel:
+    Decorative background with geometric shapes
+    Floating quote card: "Study abroad changed my life..." with fake student name
+    Semi-transparent glass card effect (backdrop-filter: blur)
+
+  On submit:
+    Call authStore.login
+    Show toast on success → navigate('/dashboard')
+    Show toast on error
+
+pages/RegisterPage.jsx:
+  Same split layout aesthetic as Login.
+  
+  Form fields: Name, Email, Password, Confirm Password
+  Password strength indicator (4-segment bar that fills as password gets stronger):
+    Score based on: length ≥8, uppercase, number, special char
+    Colors: coral → amber → teal → gold as strength increases
+  Zod validation: passwords must match, email valid, name required
+  On submit: authStore.register → navigate('/dashboard')
+
+=============================================================
+TASK 7 — DASHBOARD PAGE
+=============================================================
+
+pages/DashboardPage.jsx — requires authentication (redirect to /login if not)
+
+  Use Layout with showSidebar=true.
+  Fetch: user profile, applications, recommendations (from user preferences).
+
+  Component: WelcomeBanner
+    Greeting: "Good evening, {name}" (time-based: morning/afternoon/evening)
+    Subtext: "Here's your study abroad overview"
+    Background: subtle gold gradient strip
+
+  Component: StatsRow (4 StatCards):
+    - Total Applications (with application icon)
+    - Accepted (with check icon, teal color)
+    - Pending Review (with clock icon, amber color)
+    - Saved Universities (with bookmark icon, gold color)
+    Each card animates its number on mount.
+
+  Component: QuickActions (4 action cards in a 2×2 grid):
+    - Discover Universities → /universities
+    - Get Recommendations → /recommendations
+    - Browse Programs → /programs
+    - My Applications → /applications
+    Each: icon, title, short description, arrow icon, gold hover border
+
+  Section: Recent Applications (last 3):
+    Table-style list: university name, program, status badge, date applied
+    "View all" link → /applications
+    If empty: EmptyState component with illustration placeholder
+
+  Section: Recommended For You (3 cards):
+    Show top 3 recommendations from the API
+    Each card: university name, program, country flag emoji, tuition, relevance score bar
+    "See all recommendations" link
+
+  Section: Application Progress Chart:
+    Use recharts DonutChart showing breakdown of application statuses
+    Custom tooltip, gold/teal/coral/amber colors per status
+    Legend below the chart
+
+=============================================================
+TASK 8 — UNIVERSITIES PAGE
+=============================================================
+
+pages/UniversitiesPage.jsx:
+
+  Layout: full-width with sidebar filters on the left (280px) + results on right
+
+  Sidebar Filters (UniversityFilters component):
+    Heading: "Filter Results"
+    Country filter: multi-select checkboxes (USA, UK, Canada, Australia, Germany, etc.)
+    Ranking range: two number inputs (min–max)
+    Clear all filters button
+    Results count: "Showing X universities"
+    Filters are reflected in URL query params (use URLSearchParams)
+
+  Main content:
+    Search bar at top: debounced 400ms, searches university name
+    Sort dropdown: Ranking (asc/desc), Name (A-Z)
+    View toggle: Grid | List (icon buttons)
+    
+    UniversityGrid (grid view, 3 columns on desktop):
+      Each UniversityCard:
+        - Country flag emoji + country name
+        - University name (Playfair Display, bold)
+        - City
+        - Ranking badge (gold, "#N in World")
+        - Number of programs
+        - "View Details" button
+        - Heart icon to save (local state toggle, gold when saved)
+        - Hover: lift + glow border animation
+
+    List view: horizontal cards, more compact, same info
+
+    Pagination:
+      Page numbers with prev/next arrows
+      Show "Page X of Y · Z total results"
+      Clicking a page scrolls to top of results
+
+    Loading state: show 6 Skeleton cards in grid layout
+    Empty state: EmptyState component with "No universities found"
+
+pages/UniversityDetailPage.jsx:
+  Route: /universities/:id
+
+  Hero section:
+    Large banner area (bg gradient using university's country color)
+    University name (Playfair Display, 48px)
+    Country flag + city + website link icon
+    Ranking badge (prominent)
+    CTA: "Get Recommendations" button
+
+  Tab navigation (sticky below hero):
+    Tabs: Overview · Programs · Apply
+
+  Overview tab:
+    Grid of quick stats: country, city, total programs, ranking
+    About placeholder text (generated filler if not in API)
+
+  Programs tab:
+    Filter bar: degree type, field of study, max tuition slider
+    ProgramCard list for each program:
+      Name, field, degree badge, duration, tuition (formatted with currency),
+      intake months as small badges, IELTS min score
+      "Apply Now" button (opens apply modal if authenticated)
+    Loading skeleton, empty state
+
+  Apply tab:
+    List of programs with apply buttons
+    If already applied: show status badge instead of button
+    Clicking Apply: opens confirmation Modal
+
+=============================================================
+TASK 9 — PROGRAMS PAGE
+=============================================================
+
+pages/ProgramsPage.jsx:
+
+  Page header: "Explore Programs" with decorative underline
+
+  Filter bar (horizontal, collapsible on mobile):
+    Field of study (select)
+    Degree type (select: Bachelors, Masters, PhD, Diploma)
+    Max tuition (range slider with formatted value display)
+    Min IELTS score (range slider, 0–9 step 0.5)
+    Intake month (select)
+    Apply filters button
+
+  Results grid (2 columns on desktop, 1 on mobile):
+    ProgramCard component:
+      Program name (Playfair Display)
+      University name + country (with flag emoji)
+      Field badge (colored by field category)
+      Degree badge
+      Tuition: large gold number, currency
+      Duration: "24 months"
+      IELTS min: with icon
+      Intake months: pill badges
+      "Apply" button (disabled if not logged in with tooltip)
+      Hover: border glow, subtle lift
+
+  Pagination, loading skeletons, empty state — same patterns as universities page
+
+=============================================================
+TASK 10 — RECOMMENDATIONS PAGE
+=============================================================
+
+pages/RecommendationsPage.jsx:
+
+  Two-panel layout:
+    Left (400px): PreferencesForm
+    Right: Results area
+
+  PreferencesForm component:
+    Heading: "Tell us about yourself"
+    Fields:
+      Preferred Country (select or text input)
+      Budget / Max Tuition (number input with currency symbol)
+      Field of Study (text input or select from common fields)
+      Preferred Intake Month (select)
+      IELTS Score (range slider 0–9, step 0.5, displayed value)
+    Submit: "Find My Programs" button (gold, full width)
+    If user is logged in: pre-populate from user.preferences
+    "Save Preferences" checkbox: if checked, call updatePreferences on submit
+
+  Results area:
+    Loading: show 3 skeleton cards stacked
+    Empty: show EmptyState with prompt to fill form
+
+    RecommendationCard component for each result:
+      Rank number (large, gold, JetBrains Mono) on the left
+      Right side:
+        Program name (Playfair Display)
+        University name + country flag
+        Degree + field badges
+        Tuition + IELTS min
+        Intake month pills
+        RecommendationScore: horizontal bar showing relevance score
+          (e.g. 6/8 → 75% fill, gold color, animated on mount)
+        "Apply Now" button + "View University" link
+
+    Sort toggle: "Best Match" | "Lowest Tuition" | "Top Ranked"
+
+=============================================================
+TASK 11 — APPLICATIONS PAGE
+=============================================================
+
+pages/ApplicationsPage.jsx — requires authentication
+
+  Page header: "My Applications" + application count badge
+
+  Filter tabs (horizontal pill tabs):
+    All · Applied · Reviewed · Accepted · Rejected · Withdrawn
+    Each tab shows count badge
+    Clicking filters the list (client-side filter, no refetch)
+
+  ApplicationCard component for each application:
+    Left: university name + program name
+    Center: field, degree, tuition
+    Right: StatusBadge + applied date + action button
+    Expand on click to show more details (framer-motion AnimatePresence height animation)
+    "Update Status" button (opens StatusUpdateModal)
+    "View History" button (inline expand of timeline)
+
+  StatusBadge component:
+    Applied:   blue/teal pill
+    Reviewed:  amber pill
+    Accepted:  green pill with checkmark icon
+    Rejected:  coral pill with x icon
+    Withdrawn: gray pill
+
+  ApplicationTimeline component (inline expand):
+    Vertical timeline showing each status change
+    Each node: colored dot, status name, date, note
+    Connecting line between nodes
+    Most recent at top, initial at bottom
+
+  StatusUpdateModal component:
+    Title: "Update Application Status"
+    Show current status
+    Dropdown of allowed next statuses (based on VALID_TRANSITIONS)
+    Note textarea (optional)
+    Confirm + Cancel buttons
+    On success: show toast, refetch applications list
+
+  Empty state: EmptyState with "No applications yet" + CTA to discover universities
+
+pages/ApplicationDetailPage.jsx:
+  Route: /applications/:id
+  Full detail view:
+    Hero card: university + program header
+    Status badge (large)
+    Full details grid: all program info
+    Full ApplicationTimeline (all history)
+    Status update action
+
+=============================================================
+TASK 12 — PROFILE PAGE
+=============================================================
+
+pages/ProfilePage.jsx — requires authentication
+
+  Two sections side by side (desktop), stacked (mobile):
+
+  Left: Profile Card
+    Large avatar (colored circle with initials, gold border ring)
+    Name (Playfair Display, 28px)
+    Email (muted)
+    Member since date
+    Application stats: 3 small counters
+
+  Right: Edit Form
+    Name input
+    Email input (read-only, muted style)
+    Section heading: "Study Preferences"
+    All preference fields (same as PreferencesForm)
+    Save button: calls updatePreferences
+    Show success toast on save
+
+  Below: Danger Zone card
+    "Logout" button (ghost/danger style)
+
+=============================================================
+TASK 13 — ROUTING & GUARDS
+=============================================================
+
+App.jsx:
+  Wrap entire app in:
+    QueryClientProvider (react-query)
+    BrowserRouter (react-router-dom)
+    Toaster (react-hot-toast, position bottom-right, dark theme)
+
+  Initialize theme on mount: themeStore.initTheme()
+  Initialize auth on mount: authStore.loadUser()
+
+  Routes:
+    /                       → LandingPage (no layout wrapper, standalone)
+    /login                  → LoginPage (no sidebar)
+    /register               → RegisterPage (no sidebar)
+    /dashboard              → DashboardPage (private, sidebar)
+    /universities           → UniversitiesPage (sidebar)
+    /universities/:id       → UniversityDetailPage (sidebar)
+    /programs               → ProgramsPage (sidebar)
+    /recommendations        → RecommendationsPage (sidebar)
+    /applications           → ApplicationsPage (private, sidebar)
+    /applications/:id       → ApplicationDetailPage (private, sidebar)
+    /profile                → ProfilePage (private, sidebar)
+    *                       → NotFoundPage
+
+  PrivateRoute component:
+    If !isAuthenticated && !isLoading → redirect to /login with state { from: location }
+    If isLoading → show full-screen spinner
+    Else → render children
+
+  PublicOnlyRoute component (login/register):
+    If isAuthenticated → redirect to /dashboard
+
+=============================================================
+TASK 14 — HOOKS
+=============================================================
+
+hooks/useDebounce.js:
+  function useDebounce(value, delay = 400):
+    useState + useEffect with setTimeout
+    Return debounced value
+
+hooks/usePagination.js:
+  function usePagination(totalItems, itemsPerPage):
+    Manage currentPage state
+    Return: { currentPage, totalPages, goToPage, nextPage, prevPage,
+              hasNext, hasPrev, pageNumbers (array for rendering) }
+
+hooks/useAuth.js:
+  Re-export authStore state and actions in a clean hook API
+
+=============================================================
+TASK 15 — UTILS
+=============================================================
+
+utils/formatters.js:
+  formatCurrency(amount, currency = 'USD'):
+    Intl.NumberFormat → "$12,000 / year"
+
+  formatDate(dateString):
+    date-fns format → "Jan 15, 2025"
+
+  formatRelativeDate(dateString):
+    date-fns formatDistanceToNow → "3 days ago"
+
+  getCountryFlag(countryName):
+    Map country names to flag emojis:
+      USA → 🇺🇸, UK → 🇬🇧, Canada → 🇨🇦, Australia → 🇦🇺,
+      Germany → 🇩🇪, Netherlands → 🇳🇱, France → 🇫🇷,
+      New Zealand → 🇳🇿, Ireland → 🇮🇪, Singapore → 🇸🇬
+      Default → 🌍
+
+  getStatusColor(status):
+    Return the CSS variable name or tailwind class for each status
+
+  truncateText(text, maxLength = 100):
+    Return text + '...' if longer than maxLength
+
+utils/constants.js:
+  COUNTRIES: array of { value, label } for select options
+  FIELDS_OF_STUDY: array of common fields
+  DEGREE_TYPES: ['Bachelors', 'Masters', 'PhD', 'Diploma']
+  INTAKE_MONTHS: ['January', 'March', 'May', 'September', 'October']
+  VALID_TRANSITIONS: mirror of backend state machine
+  STATUS_COLORS: map of status → color class
+
+=============================================================
+TASK 16 — ENV & FINAL WIRING
+=============================================================
+
+Create .env:
+  VITE_API_URL=http://localhost:5000/api
+
+Create .env.example with same key, empty value.
+
+vite.config.js:
+  Add server.proxy for /api → localhost:5000 to avoid CORS in dev.
+
+index.html:
+  Update <title> to "StudyAbroad — Find Your Path"
+  Add favicon (use an emoji favicon via SVG data URI)
+  Add meta description tag
+
+=============================================================
+TASK 17 — POLISH & DETAILS
+=============================================================
+
+Apply these finishing touches across the entire app:
+
+1. Page transitions:
+   Wrap each page in a motion.div with:
+     initial: { opacity: 0, y: 16 }
+     animate: { opacity: 1, y: 0 }
+     exit:    { opacity: 0, y: -8 }
+     transition: { duration: 0.3, ease: 'easeOut' }
+
+2. Scroll to top on route change:
+   Component ScrollToTop that calls window.scrollTo(0,0) on location change.
+
+3. Loading states:
+   Every page that fetches data must show skeleton loaders, not spinners,
+   while data is loading. Skeletons must match the shape of actual content.
+
+4. Error states:
+   Every page that can fail must show a styled error card with a retry button.
+
+5. Toast notifications:
+   Success: gold background, dark text
+   Error: coral background, white text
+   Configure react-hot-toast style to match theme.
+
+6. 404 page (NotFoundPage.jsx):
+   Large "404" in Playfair Display (gold)
+   "Page not found" heading
+   Short description
+   "Go Home" button
+   Decorative floating elements
+
+7. Mobile responsiveness:
+   All pages must work cleanly on 375px wide screens.
+   Sidebar collapses to drawer on mobile (overlay, swipe to close).
+   Navbar hamburger menu on mobile.
+   Cards stack to single column on mobile.
+   Filters collapse into a modal/drawer on mobile.
+
+8. Accessibility:
+   All interactive elements have aria-labels.
+   Focus visible ring on keyboard navigation (gold color).
+   Color is never the only indicator (pair with icons/text).
+   Modal traps focus.
+
+9. Hover micro-interactions:
+   Buttons: scale(0.97) active, smooth shadow change
+   Cards: translateY(-3px), border color transition
+   Nav links: underline slides in from left
+   Icons: rotate or scale on hover where appropriate
+
+10. Consistent empty states:
+    Every list/grid that can be empty gets a thoughtfully designed
+    EmptyState component — unique icon, helpful message, relevant CTA.
+
+=============================================================
+GLOBAL IMPLEMENTATION RULES
+=============================================================
+1.  Use CSS variables for ALL colors — never hardcode hex values
+    anywhere except in index.css variable definitions.
+2.  All data fetching uses @tanstack/react-query with proper
+    queryKey arrays, staleTime: 5 minutes for list queries.
+3.  All forms use react-hook-form + zod for validation.
+4.  No page should show raw error objects to users — always
+    show friendly messages.
+5.  Every network call must have a loading state and an error state.
+6.  Components under 50 lines stay in one file.
+    Larger components split into sub-components in the same folder.
+7.  Avoid prop drilling — use Zustand for global state,
+    react-query for server state.
+8.  All images are replaced with emoji, initials, or CSS shapes
+    — do not reference any external image URLs.
+9.  The app must function correctly with no backend running
+    (show empty states gracefully, not blank screens or crashes).
+10. Mobile-first CSS: base styles for mobile, md: for desktop.
+11. Run npm run build at the end and fix any TypeScript/lint errors.
+12. Comment complex logic but keep component JSX clean.
+
+Begin with Task 0 (project init) and proceed through Task 17
+sequentially. Do not skip tasks or leave placeholders —
+every component, page, and feature must be fully implemented.

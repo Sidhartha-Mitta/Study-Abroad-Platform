@@ -1,0 +1,53 @@
+services:
+  frontend:
+    build:
+      context: ./study-abroad-frontend
+      args:
+        VITE_API_URL: /api
+    container_name: study-abroad-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./study-abroad-backend
+    container_name: study-abroad-backend
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/studyabroad
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-replace_this_with_a_long_random_secret_for_local_docker}
+      ADMIN_SECRET: studyabroad_admin_2026
+      JWT_EXPIRES_IN: 7d
+      CLIENT_URL: http://localhost:8080
+    ports:
+      - "5001:5000"
+    depends_on:
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    container_name: study-abroad-mongo
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: study-abroad-redis
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  redis_data:
